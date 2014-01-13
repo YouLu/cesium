@@ -7,7 +7,7 @@
 		</glslToJavascript>
 
 		<createCesiumJs output="${sourceDirectory}/Cesium.js">
-			<sourcefiles refid="cesiumJsFileSet" />
+			<sourcefiles refid="cesiumJsFiles" />
 		</createCesiumJs>
 
 		<createSpecList output="${specsDirectory}/SpecList.js">
@@ -121,6 +121,7 @@
 
 	<!-- properties controlling which steps get run -->
 	<property name="build.minification" value="false" />
+	<property name="pragmas.debug" value="true" />
 
 	<!-- properties controlling how to run the server-->
 	<property name="runServer.public" value="false" />
@@ -129,7 +130,7 @@
 
 	<!-- Inputs -->
 	<!-- this version should be set to the upcoming version, so it can be tagged without requiring a bump first -->
-	<property name="version" value="b23" />
+	<property name="version" value="b24" />
 	<property name="sourceDirectory" location="Source" />
 	<property name="shadersDirectory" location="${sourceDirectory}/Shaders" />
 	<property name="examplesDirectory" location="Examples" />
@@ -157,7 +158,6 @@
 	<property name="githubRepoLink" value="https://github.com/AnalyticalGraphicsInc/cesium/" />
 	<property name="githubLinkExt" value="blob/" />
 
-
 	<!-- Outputs -->
 	<property name="buildDirectory" location="Build" />
 	<property name="buildOutputDirectory" location="${buildDirectory}/Cesium" />
@@ -173,22 +173,17 @@
 		<pathelement path="${toolsDirectory}/commons-logging-1.1.1/commons-logging-1.1.1.jar" />
 	</path>
 
-	<pathconvert property="cesiumJsFileSetPath" pathsep=",">
-		<union>
-			<fileset dir="${sourceDirectory}">
-				<include name="**/*.js" />
-				<exclude name="*.js" />
-				<exclude name="Workers/**" />
-				<exclude name="**/*.profile.js" />
-			</fileset>
-			<fileset dir="${sourceDirectory}">
-				<include name="Workers/createTaskProcessorWorker.js" />
-			</fileset>
-		</union>
-		<globmapper from="${sourceDirectory}/*" to="*" handledirsep="true" />
-	</pathconvert>
-
-	<fileset dir="${sourceDirectory}" id="cesiumJsFileSet" includes="${cesiumJsFileSetPath}" />
+	<union id="cesiumJsFiles">
+		<fileset dir="${sourceDirectory}">
+			<include name="**/*.js" />
+			<exclude name="*.js" />
+			<exclude name="Workers/**" />
+			<exclude name="**/*.profile.js" />
+		</fileset>
+		<fileset dir="${sourceDirectory}">
+			<include name="Workers/createTaskProcessorWorker.js" />
+		</fileset>
+	</union>
 
 	<fileset dir="${sourceDirectory}" id="cesiumWorkersJsFileSet">
 		<include name="**/*.js" />
@@ -210,7 +205,7 @@
 
 	<scriptdef name="createCesiumJs" language="javascript" src="${tasksDirectory}/createCesiumJs.js" manager="bsf" classpathref="javascriptClassPath" loaderref="javascript.loader">
 		<attribute name="output" />
-		<element name="sourcefiles" type="fileset" />
+		<element name="sourcefiles" type="resources" />
 	</scriptdef>
 
 	<scriptdef name="createSpecList" language="javascript" src="${tasksDirectory}/createSpecList.js" manager="bsf" classpathref="javascriptClassPath" loaderref="javascript.loader">
@@ -239,7 +234,7 @@
 	<scriptdef name="generateStubs" language="javascript" src="${tasksDirectory}/generateStubs.js" manager="bsf" classpathref="javascriptClassPath" loaderref="javascript.loader">
 		<attribute name="stuboutput" />
 		<attribute name="pathsoutput" />
-		<element name="sourcefiles" type="fileset" />
+		<element name="sourcefiles" type="resources" />
 	</scriptdef>
 
 	<target name="jsHint" depends="build" description="Runs JSHint on the entire source tree.">
@@ -327,7 +322,7 @@
 
 		<mkdir dir="${buildStubsDirectory}" />
 		<generateStubs stuboutput="${buildStubsDirectory}/Cesium.js" pathsoutput="${buildStubsDirectory}/paths.js">
-			<sourcefiles refid="cesiumJsFileSet" />
+			<sourcefiles refid="cesiumJsFiles" />
 		</generateStubs>
 
 		<!-- create combined Cesium.js workers -->
@@ -355,15 +350,11 @@
 	</target>
 
 	<target name="combineJavaScript.combineCesium" depends="combineJavaScript.combineCesium.check" unless="no.combineCesium.create">
-		<condition property="debugOption" value="pragmas.debug=${pragmas.debug}" else="">
-			<isset property="pragmas.debug" />
-		</condition>
-
 		<exec executable="${nodePath}" dir="${sourceDirectory}">
 			<arg value="${rjsPath}" />
 			<arg value="-o" />
 			<arg value="${rjsOptions}" />
-			<arg value="${debugOption}" />
+			<arg value="pragmas.debug=${pragmas.debug}" />
 			<arg value="optimize=${optimize}" />
 			<arg value="baseUrl=." />
 			<arg value="skipModuleInsertion=true" />
@@ -374,16 +365,12 @@
 	</target>
 
 	<target name="combineJavaScript.combineCesiumWorkers" depends="combineJavaScript.combineCesiumWorkers.check" unless="no.combineCesiumWorkers.create">
-		<condition property="debugOption" value="pragmas.debug=${pragmas.debug}" else="">
-			<isset property="pragmas.debug" />
-		</condition>
-
 		<!-- create cesiumWorkerBootstrapper -->
 		<exec executable="${nodePath}" dir="${sourceDirectory}">
 			<arg value="${rjsPath}" />
 			<arg value="-o" />
 			<arg value="${rjsOptions}" />
-			<arg value="${debugOption}" />
+			<arg value="pragmas.debug=${pragmas.debug}" />
 			<arg value="optimize=${optimize}" />
 			<arg value="baseUrl=." />
 			<arg value="skipModuleInsertion=true" />
@@ -398,7 +385,7 @@
 			<arg value="-o" />
 			<arg value="${rjsOptions}" />
 			<arg value="optimize=${optimize}" />
-			<arg value="${debugOption}" />
+			<arg value="pragmas.debug=${pragmas.debug}" />
 			<arg value="baseUrl=." />
 
 			<srcfile prefix="name=Workers/" />
@@ -421,7 +408,7 @@
 
 	<target name="combineJavaScript.combineCesium.check">
 		<uptodate property="no.combineCesium.create" targetfile="${outputDirectory}/Cesium.js">
-			<srcfiles refid="cesiumJsFileSet" />
+			<srcfiles refid="cesiumJsFiles" />
 		</uptodate>
 	</target>
 
