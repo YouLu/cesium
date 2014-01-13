@@ -205,20 +205,8 @@ define([
         return (suffixLength < strLength) && (str.indexOf(suffix, strLength - suffixLength) !== -1);
     }
 
-    function createOnLoadCallback(viewer, source) {
-        var DataSource;
-        var sourceUpperCase = source.toUpperCase();
-        if (endsWith(sourceUpperCase, ".CZML")) {
-            DataSource = CzmlDataSource;
-        } else if (endsWith(sourceUpperCase, ".GEOJSON") || //
-        endsWith(sourceUpperCase, ".JSON") || //
-        endsWith(sourceUpperCase, ".TOPOJSON")) {
-            DataSource = GeoJsonDataSource;
-        } else {
-            viewer.dropError.raiseEvent(viewer, source, 'Unrecognized file extension: ' + source);
-            return undefined;
-        }
-
+    function createOnLoadCallback(viewer, file) {
+        var source = file.name;
         return function(evt) {
             try {
                 var promise;
