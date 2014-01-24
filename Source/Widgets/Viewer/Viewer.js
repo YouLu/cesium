@@ -702,6 +702,10 @@ Either specify options.imageryProvider instead or set options.baseLayerPicker to
             baseLayerPickerDropDown.style.maxHeight = panelMaxHeight + 'px';
         }
 
+        if (defined(this._selectionIndicator)) {
+            this._selectionIndicator.viewModel.maxHeight = Math.min(panelMaxHeight, 480);
+        }
+
         if (defined(this._dataSourceBrowser)) {
             this._dataSourceBrowser.viewModel.maxHeight = panelMaxHeight;
         }
