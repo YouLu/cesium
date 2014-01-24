@@ -726,6 +726,13 @@ define([
         dynamicObject.name = defaultValue(packet.name, dynamicObject.name);
     }
 
+    function processDescription(dynamicObject, packet, dynamicObjectCollection, sourceUri) {
+        var descriptionData = packet.description;
+        if (defined(descriptionData)) {
+            processPacketData(String, dynamicObject, 'description', descriptionData, undefined, sourceUri);
+        }
+    }
+
     function processUiShow(dynamicObject, packet, dynamicObjectCollection, sourceUri) {
         dynamicObject.uiShow = defaultValue(packet.uiShow, dynamicObject.uiShow);
     }
@@ -1254,6 +1261,7 @@ define([
     processCone, //
     processLabel, //
     processName, //
+    processDescription, //
     processUiShow, //
     processPath, //
     processPoint, //

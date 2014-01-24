@@ -61,9 +61,6 @@ define(['../../Core/BoundingSphere',
         if (viewer.hasOwnProperty('trackedObject')) {
             throw new DeveloperError('trackedObject is already defined by another mixin.');
         }
-        if (viewer.hasOwnProperty('objectTracked')) {
-            throw new DeveloperError('objectTracked is already defined by another mixin.');
-        }
         if (viewer.hasOwnProperty('selectedObject')) {
             throw new DeveloperError('selectedObject is already defined by another mixin.');
         }
@@ -79,10 +76,9 @@ define(['../../Core/BoundingSphere',
         viewer._selectionIndicator = selectionIndicator;
 
         var eventHelper = new EventHelper();
-        var objectTracked = new Event();
-        var trackedObject;
+        var selectedObjectObservable = knockout.observable();
+        var trackedObjectObservable = knockout.observable();
         var dynamicObjectView;
-        var selectedObject;
 
         function selectionInfoClosed() {
             viewer.selectedObject = undefined;
@@ -100,6 +96,7 @@ define(['../../Core/BoundingSphere',
                 dynamicObjectView.update(time);
             }
 
+            var selectedObject = viewer.selectedObject;
             var showSelection = defined(selectedObject) && selectedObject.isAvailable(time);
             if (showSelection) {
                 if (defined(selectedObject.position)) {
@@ -110,6 +107,12 @@ define(['../../Core/BoundingSphere',
                     selectionIndicatorViewModel.position = scratchBoundingSphere.center;
                 } else {
                     selectionIndicatorViewModel.position = undefined;
+                }
+
+                if (defined(selectedObject.description)) {
+                    selectionIndicatorViewModel.descriptionText = selectedObject.description.getValue(time) || '';
+                } else {
+                    selectionIndicatorViewModel.descriptionText = '';
                 }
             }
 
@@ -126,18 +129,14 @@ define(['../../Core/BoundingSphere',
 
         function pickAndTrackObject(e) {
             var picked = viewer.scene.pick(e.position);
-            if (defined(picked) &&
-                defined(picked.primitive) &&
-                defined(picked.primitive.dynamicObject)) {
+            if (defined(picked) && defined(picked.primitive) && defined(picked.primitive.dynamicObject)) {
                 viewer.trackedObject = picked.primitive.dynamicObject;
             }
         }
 
         function pickAndShowSelection(e) {
             var picked = viewer.scene.pick(e.position);
-            if (defined(picked) &&
-                defined(picked.primitive) &&
-                defined(picked.primitive.dynamicObject)) {
+            if (defined(picked) && defined(picked.primitive) && defined(picked.primitive.dynamicObject)) {
                 viewer.selectedObject = picked.primitive.dynamicObject;
             } else {
                 viewer.selectedObject = undefined;
@@ -188,12 +187,12 @@ define(['../../Core/BoundingSphere',
         function dataSourceRemoved(dataSourceCollection, dataSource) {
             dataSource.getDynamicObjectCollection().collectionChanged.removeEventListener(onDynamicCollectionChanged);
 
-            if (defined(trackedObject)) {
+            if (defined(viewer.trackedObject)) {
                 if (dataSource.getDynamicObjectCollection().getById(viewer.trackedObject.id) === viewer.trackedObject) {
                     viewer.homeButton.viewModel.command();
                 }
             }
-            if (defined(selectedObject)) {
+            if (defined(viewer.selectedObject)) {
                 if (dataSource.getDynamicObjectCollection().getById(viewer.selectedObject.id) === viewer.selectedObject) {
                     viewer.selectedObject = undefined;
                 }
@@ -215,74 +214,55 @@ define(['../../Core/BoundingSphere',
         viewer.screenSpaceEventHandler.setInputAction(pickAndShowSelection, ScreenSpaceEventType.LEFT_CLICK);
         viewer.screenSpaceEventHandler.setInputAction(pickAndTrackObject, ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 
-        if (defined(viewer.dataSourceBrowser)) {
-            eventHelper.add(viewer.dataSourceBrowser.viewModel.onObjectDoubleClick, trackObject);
-        }
-
-        defineProperties(viewer, {
-            /**
-             * Gets or sets the DynamicObject instance currently being tracked by the camera.
-             * @memberof viewerDynamicObjectMixin.prototype
-             * @type {DynamicObject}
-             */
-            trackedObject : {
-                get : function() {
-                    return trackedObject;
-                },
-                set : function(value) {
-                    var sceneMode = viewer.scene.getFrameState().mode;
-                    if (sceneMode === SceneMode.COLUMBUS_VIEW || sceneMode === SceneMode.SCENE2D) {
-                        viewer.scene.getScreenSpaceCameraController().enableTranslate = !defined(value);
-                    }
-
-                    if (sceneMode === SceneMode.COLUMBUS_VIEW || sceneMode === SceneMode.SCENE3D) {
-                        viewer.scene.getScreenSpaceCameraController().enableTilt = !defined(value);
-                    }
-
-                    if (trackedObject !== value) {
-                        trackedObject = value;
-                        if (defined(value)) {
-                            selectedObject = value;
-                        }
-                        dynamicObjectView = defined(value) ? new DynamicObjectView(value, viewer.scene, viewer.centralBody.getEllipsoid()) : undefined;
-                        objectTracked.raiseEvent(viewer, value);
-                    }
-                }
+        /**
+         * Gets or sets the DynamicObject instance currently being tracked by the camera.
+         * @memberof viewerDynamicObjectMixin.prototype
+         * @type {DynamicObject}
+         */
+        viewer.trackedObject = undefined;
+        knockout.defineProperty(viewer, 'trackedObject', {
+            get : function() {
+                return trackedObjectObservable();
             },
+            set : function(value) {
+                var sceneMode = viewer.scene.getFrameState().mode;
 
-            /**
-             * Gets an event that will be raised when an object is tracked by the camera.  The event
-             * has two parameters: a reference to the viewer instance, and the newly tracked object.
-             *
-             * @memberof viewerDynamicObjectMixin.prototype
-             * @type {Event}
-             */
-            objectTracked : {
-                get : function() {
-                    return objectTracked;
+                if (sceneMode === SceneMode.COLUMBUS_VIEW || sceneMode === SceneMode.SCENE2D) {
+                    viewer.scene.getScreenSpaceCameraController().enableTranslate = !defined(value);
                 }
+
+                if (sceneMode === SceneMode.COLUMBUS_VIEW || sceneMode === SceneMode.SCENE3D) {
+                    viewer.scene.getScreenSpaceCameraController().enableTilt = !defined(value);
+                }
+
+                if (trackedObjectObservable() !== value) {
+                    dynamicObjectView = defined(value) ? new DynamicObjectView(value, viewer.scene, viewer.centralBody.getEllipsoid()) : undefined;
+                    trackedObjectObservable(value);
+                }
+            }
+        });
+
+        /**
+         * Gets or sets the object instance for which to display a selection indicator
+         * @memberof viewerDynamicObjectMixin.prototype
+         * @type {DynamicObject}
+         */
+        viewer.selectedObject = undefined;
+        knockout.defineProperty(viewer, 'selectedObject', {
+            get : function() {
+                return selectedObjectObservable();
             },
-            /**
-             * Gets or sets the object instance for which to display a selection indicator
-             * @memberof viewerDynamicObjectMixin.prototype
-             * @type {DynamicObject}
-             */
-            selectedObject : {
-                get : function() {
-                    return selectedObject;
-                },
-                set : function(value) {
-                    if (selectedObject !== value) {
-                        selectedObject = value;
-                        if (defined(value)) {
-                            selectionIndicatorViewModel.titleText = defined(selectedObject.name) ? selectedObject.name : '';
-                            selectionIndicatorViewModel.animateAppear();
-                        } else {
-                            // Removing the text here prevents the exit animation.
-                            //selectionIndicatorViewModel.titleText = '';
-                            selectionIndicatorViewModel.animateDepart();
-                        }
+            set : function(value) {
+                if (selectedObjectObservable() !== value) {
+                    if (defined(value)) {
+                        selectionIndicatorViewModel.titleText = defined(value.name) ? value.name : '';
+                        selectionIndicatorViewModel.animateAppear();
+                    } else {
+                        // Removing the text here prevents the exit animation.
+                        //selectionIndicatorViewModel.titleText = '';
+                        selectionIndicatorViewModel.animateDepart();
                     }
+                    selectedObjectObservable(value);
                 }
             }
         });
