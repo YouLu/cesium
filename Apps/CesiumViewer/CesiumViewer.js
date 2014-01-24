@@ -103,6 +103,10 @@ define([
             }
         });
 
+        viewer.dataSourceBrowser.viewModel.onObjectDoubleClick.addEventListener(function(dynamicObject) {
+            viewer.trackedObject = dynamicObject;
+        });
+
         var scene = viewer.scene;
         var context = scene.getContext();
         if (endUserOptions.debug) {
