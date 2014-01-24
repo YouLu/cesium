@@ -10,6 +10,7 @@ define(['../../Core/BoundingSphere',
         '../../Core/ScreenSpaceEventType',
         '../../Core/wrapFunction',
         '../../Scene/SceneMode',
+        '../subscribeAndEvaluate',
         '../SelectionIndicator/SelectionIndicator',
         '../../DynamicScene/DynamicObjectView',
         '../../ThirdParty/knockout'
@@ -25,6 +26,7 @@ define(['../../Core/BoundingSphere',
         ScreenSpaceEventType,
         wrapFunction,
         SceneMode,
+        subscribeAndEvaluate,
         SelectionIndicator,
         DynamicObjectView,
         knockout) {
@@ -214,10 +216,6 @@ define(['../../Core/BoundingSphere',
         viewer.screenSpaceEventHandler.setInputAction(pickAndShowSelection, ScreenSpaceEventType.LEFT_CLICK);
         viewer.screenSpaceEventHandler.setInputAction(pickAndTrackObject, ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 
-        if (defined(viewer.dataSourceBrowser)) {
-            eventHelper.add(viewer.dataSourceBrowser.viewModel.onObjectDoubleClick, trackObject);
-        }
-
         /**
          * Gets or sets the DynamicObject instance currently being tracked by the camera.
          * @memberof viewerDynamicObjectMixin.prototype
@@ -271,6 +269,31 @@ define(['../../Core/BoundingSphere',
             }
         });
 
+        var knockoutSubscriptions = [];
+
+        if (defined(viewer.dataSourceBrowser)) {
+            eventHelper.add(viewer.dataSourceBrowser.viewModel.onObjectDoubleClick, trackObject);
+
+            //These two blocks keep the Viewer widget's selectedObject in sync with the selected node in the DataSourceBrowser.
+            var tmp = subscribeAndEvaluate(viewer, 'selectedObject', function(selectedObject) {
+                if (defined(selectedObject)) {
+                    viewer.dataSourceBrowser.viewModel.selectViewModelById(selectedObject.id);
+                } else {
+                    viewer.dataSourceBrowser.viewModel.selectedViewModel = undefined;
+                }
+            });
+            knockoutSubscriptions.push(tmp);
+
+            tmp = subscribeAndEvaluate(viewer.dataSourceBrowser.viewModel, 'selectedViewModel', function(selectedViewModel) {
+                if (defined(selectedViewModel) && defined(selectedViewModel.dynamicObject)) {
+                    viewer.selectedObject = selectedViewModel.dynamicObject;
+                } else {
+                    viewer.selectedObject = undefined;
+                }
+            });
+            knockoutSubscriptions.push(tmp);
+        }
+
         //Wrap destroy to clean up event subscriptions.
         viewer.destroy = wrapFunction(viewer, viewer.destroy, function() {
             eventHelper.removeAll();
@@ -278,10 +301,16 @@ define(['../../Core/BoundingSphere',
             viewer.screenSpaceEventHandler.removeInputAction(ScreenSpaceEventType.LEFT_CLICK);
             viewer.screenSpaceEventHandler.removeInputAction(ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 
+            var i;
+            var length = knockoutSubscriptions.length;
+            for (i = 0; i < length; i++) {
+                knockoutSubscriptions[i].dispose();
+            }
+
             //Unsubscribe from data sources
             var dataSources = viewer.dataSources;
-            var dataSourceLength = dataSources.getLength();
-            for (var i = 0; i < dataSourceLength; i++) {
+            length = dataSources.getLength();
+            for (i = 0; i < length; i++) {
                 dataSourceRemoved(dataSources, dataSources.get(i));
             }
         });
