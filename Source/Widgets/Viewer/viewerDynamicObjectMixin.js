@@ -144,6 +144,10 @@ define(['../../Core/BoundingSphere',
             }
         }
 
+        function clearTrackedObject() {
+            viewer.trackedObject = undefined;
+        }
+
         function clearObjects() {
             viewer.trackedObject = undefined;
             viewer.selectedObject = undefined;
@@ -151,12 +155,13 @@ define(['../../Core/BoundingSphere',
 
         //Subscribe to the home button beforeExecute event if it exists,
         // so that we can clear the trackedObject.
+        //NOTE: Do not clear viewer.selectedObject here, the selection is still valid.
         if (defined(viewer.homeButton)) {
-            eventHelper.add(viewer.homeButton.viewModel.command.beforeExecute, clearObjects);
+            eventHelper.add(viewer.homeButton.viewModel.command.beforeExecute, clearTrackedObject);
         }
 
         //Subscribe to the geocoder search if it exists, so that we can
-        //clear the trackedObject when it is clicked.
+        //clear the trackedObject and selectedObject when it is clicked.
         if (defined(viewer.geocoder)) {
             eventHelper.add(viewer.geocoder.viewModel.search.beforeExecute, clearObjects);
         }
