@@ -214,6 +214,10 @@ define(['../../Core/BoundingSphere',
         viewer.screenSpaceEventHandler.setInputAction(pickAndShowSelection, ScreenSpaceEventType.LEFT_CLICK);
         viewer.screenSpaceEventHandler.setInputAction(pickAndTrackObject, ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 
+        if (defined(viewer.dataSourceBrowser)) {
+            eventHelper.add(viewer.dataSourceBrowser.viewModel.onObjectDoubleClick, trackObject);
+        }
+
         /**
          * Gets or sets the DynamicObject instance currently being tracked by the camera.
          * @memberof viewerDynamicObjectMixin.prototype
