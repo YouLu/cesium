@@ -68,7 +68,15 @@ define(['../../Core/BoundingSphere',
 
         //SelectionIndicator
         var selectionIndicatorContainer = document.createElement('div');
-        viewer.container.appendChild(selectionIndicatorContainer);
+        var viewerElement = viewer.container.firstChild;
+        if (viewerElement.children.length > 1) {
+            // The first (rear-most) child of "viewer" will always be "cesiumWidget".  Insert the
+            // selection as the second child, prior to any other UI elements.
+            viewerElement.insertBefore(selectionIndicatorContainer, viewerElement.children[1]);
+        } else {
+            // If all other subwidgets are turned off, just append after cesiumWidget.
+            viewerElement.appendChild(selectionIndicatorContainer);
+        }
 
         var selectionIndicator = new SelectionIndicator(selectionIndicatorContainer, viewer.scene);
 
