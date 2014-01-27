@@ -251,8 +251,7 @@ define(['../../Core/BoundingSphere',
                         selectionIndicatorViewModel.titleText = defined(value.name) ? value.name : '';
                         selectionIndicatorViewModel.animateAppear();
                     } else {
-                        // Removing the text here prevents the exit animation.
-                        //selectionIndicatorViewModel.titleText = '';
+                        // Leave the info text in place here, it is needed during the exit animation.
                         selectionIndicatorViewModel.animateDepart();
                     }
                     selectedObjectObservable(value);
