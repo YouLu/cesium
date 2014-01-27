@@ -92,7 +92,6 @@ define([
         this._titleText = '';
         this._descriptionText = '';
         this._onCloseInfo = new Event();
-        this._defaultPosition = new Cartesian2(this._container.clientWidth, this._container.clientHeight / 2);
         this._computeScreenSpacePosition = function(position, result) {
             return SceneTransforms.wgs84ToWindowCoordinates(scene, position, result);
         };
@@ -135,10 +134,10 @@ define([
          */
         this.maxHeight = 500;
 
-        knockout.track(this, ['_positionX', '_positionY', 'triangleDistance', 'triangleRotation', '_showSelection', '_titleText', '_descriptionText', 'maxHeight']);
+        knockout.track(this, ['_position', '_positionX', '_positionY', 'triangleDistance', 'triangleRotation', '_showSelection', '_titleText', '_descriptionText', 'maxHeight']);
 
         /**
-         * Determines the visibility of the selection indicator.
+         * Gets or sets the visibility of the selection indicator.
          * @memberof SelectionIndicatorViewModel.prototype
          *
          * @type {Boolean}
@@ -150,6 +149,19 @@ define([
             },
             set : function(value) {
                 this._showSelection = value;
+            }
+        });
+
+        /**
+         * Gets the visibility of the position indicator.
+         * @memberof SelectionIndicatorViewModel.prototype
+         *
+         * @type {Boolean}
+         */
+        this.showPosition = undefined;
+        knockout.defineProperty(this, 'showPosition', {
+            get : function() {
+                return this._showSelection && defined(this._position);
             }
         });
 
@@ -226,16 +238,13 @@ define([
      * @memberof SelectionIndicatorViewModel
      */
     SelectionIndicatorViewModel.prototype.update = function() {
-        var pos;
         if (this.showSelection) {
             if (defined(this._position)) {
-                pos = this._computeScreenSpacePosition(this._position, screenSpacePos);
+                var pos = this._computeScreenSpacePosition(this._position, screenSpacePos);
                 pos.x = Math.floor(pos.x + 0.25);
                 pos.y = Math.floor(pos.y + 0.25);
-            } else {
-                pos = this._defaultPosition;
+                shiftPosition(this, pos);
             }
-            shiftPosition(this, pos);
         }
     };
 
@@ -331,20 +340,6 @@ define([
         scene : {
             get : function() {
                 return this._scene;
-            }
-        },
-        /**
-         * Gets or sets the default screen space position of the selection indicator.
-         * @memberof SelectionIndicatorViewModel.prototype
-         *
-         * @type {Cartesain2}
-         */
-        defaultPosition : {
-            get : function() {
-                return this._defaultPosition;
-            },
-            set : function(value) {
-                this._defaultPosition = Cartesian2.clone(value, this._defaultPosition);
             }
         },
         /**

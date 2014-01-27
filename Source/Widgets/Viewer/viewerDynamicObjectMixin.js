@@ -105,14 +105,18 @@ define(['../../Core/BoundingSphere',
             }
 
             var selectedObject = viewer.selectedObject;
-            var showSelection = defined(selectedObject) && selectedObject.isAvailable(time);
+            var showSelection = defined(selectedObject);
             if (showSelection) {
-                if (defined(selectedObject.position)) {
-                    selectionIndicatorViewModel.position = selectedObject.position.getValue(time, selectionIndicatorViewModel.position);
-                } else if (defined(selectedObject.vertexPositions)) {
-                    scratchVertexPositions = selectedObject.vertexPositions.getValue(time, scratchVertexPositions);
-                    scratchBoundingSphere = BoundingSphere.fromPoints(scratchVertexPositions, scratchBoundingSphere);
-                    selectionIndicatorViewModel.position = scratchBoundingSphere.center;
+                if (selectedObject.isAvailable(time)) {
+                    if (defined(selectedObject.position)) {
+                        selectionIndicatorViewModel.position = selectedObject.position.getValue(time, selectionIndicatorViewModel.position);
+                    } else if (defined(selectedObject.vertexPositions)) {
+                        scratchVertexPositions = selectedObject.vertexPositions.getValue(time, scratchVertexPositions);
+                        scratchBoundingSphere = BoundingSphere.fromPoints(scratchVertexPositions, scratchBoundingSphere);
+                        selectionIndicatorViewModel.position = scratchBoundingSphere.center;
+                    } else {
+                        selectionIndicatorViewModel.position = undefined;
+                    }
                 } else {
                     selectionIndicatorViewModel.position = undefined;
                 }
