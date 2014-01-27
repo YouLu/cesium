@@ -35,11 +35,11 @@ define([
         container = getElement(container);
 
         this._container = container;
-        container.setAttribute('data-bind', 'css: { "cesium-selection-container" : true, "cesium-selection-container-visible" : showSelection }');
+        container.className = 'cesium-selection-container';
 
         var el = document.createElement('div');
         el.className = 'cesium-selection-wrapper';
-        el.setAttribute('data-bind', 'style: { "bottom" : _positionY, "left" : _positionX }');
+        el.setAttribute('data-bind', 'style: { "bottom" : _positionY, "left" : _positionX }, css: { "cesium-selection-wrapper-visible" : showPosition }');
         container.appendChild(el);
         this._element = el;
 
@@ -95,7 +95,7 @@ define([
 
         var descriptionElement = document.createElement('div');
         descriptionElement.className = 'cesium-selection-info-description';
-        descriptionElement.setAttribute('data-bind', 'html: descriptionText, style : { maxHeight : maxHeightOffset(40) }');
+        descriptionElement.setAttribute('data-bind', 'html: descriptionHtml, style : { maxHeight : maxHeightOffset(40) }');
         infoBodyElement.appendChild(descriptionElement);
 
         var viewModel = new SelectionIndicatorViewModel(scene, this._element, this._container);

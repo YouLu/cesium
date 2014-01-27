@@ -8,6 +8,7 @@ define([
         '../../Core/Event',
         '../../Scene/SceneTransforms',
         '../../ThirdParty/knockout',
+        '../../ThirdParty/sanitize-caja',
         '../../ThirdParty/Tween'
     ], function(
         Cartesian2,
@@ -18,6 +19,7 @@ define([
         Event,
         SceneTransforms,
         knockout,
+        sanitizeCaja,
         Tween) {
     "use strict";
 
@@ -80,6 +82,7 @@ define([
             throw new DeveloperError('selectionIndicatorElement is required.');
         }
 
+        this._sanitizer = undefined;
         this._scene = scene;
         this._animationCollection = scene.getAnimations();
         this._container = defaultValue(container, document.body);
@@ -90,9 +93,9 @@ define([
         this._timerRunning = false;
         this._showSelection = false;
         this._titleText = '';
-        this._descriptionText = '';
+        this._descriptionHtml = '';
+        this._unsanitizedDescriptionHtml = '';
         this._onCloseInfo = new Event();
-        this._defaultPosition = new Cartesian2(this._container.clientWidth, this._container.clientHeight / 2);
         this._computeScreenSpacePosition = function(position, result) {
             return SceneTransforms.wgs84ToWindowCoordinates(scene, position, result);
         };
@@ -135,10 +138,10 @@ define([
          */
         this.maxHeight = 500;
 
-        knockout.track(this, ['_positionX', '_positionY', 'triangleDistance', 'triangleRotation', '_showSelection', '_titleText', '_descriptionText', 'maxHeight']);
+        knockout.track(this, ['_position', '_positionX', '_positionY', 'triangleDistance', 'triangleRotation', '_showSelection', '_titleText', '_descriptionHtml', 'maxHeight']);
 
         /**
-         * Determines the visibility of the selection indicator.
+         * Gets or sets the visibility of the selection indicator.
          * @memberof SelectionIndicatorViewModel.prototype
          *
          * @type {Boolean}
@@ -150,6 +153,19 @@ define([
             },
             set : function(value) {
                 this._showSelection = value;
+            }
+        });
+
+        /**
+         * Gets the visibility of the position indicator.
+         * @memberof SelectionIndicatorViewModel.prototype
+         *
+         * @type {Boolean}
+         */
+        this.showPosition = undefined;
+        knockout.defineProperty(this, 'showPosition', {
+            get : function() {
+                return this._showSelection && defined(this._position);
             }
         });
 
@@ -177,14 +193,20 @@ define([
          *
          * @type {String}
          */
-        this.descriptionText = undefined;
-        knockout.defineProperty(this, 'descriptionText', {
+        this.descriptionHtml = undefined;
+        knockout.defineProperty(this, 'descriptionHtml', {
             get : function() {
-                return this._descriptionText;
+                return this._descriptionHtml;
             },
             set : function(value) {
-                if (this._descriptionText !== value) {
-                    this._descriptionText = value;
+                if (this._unsanitizedDescriptionHtml !== value) {
+                    this._unsanitizedDescriptionHtml = value;
+                    if (defined(this._sanitizer)) {
+                        value = this._sanitizer(value);
+                    } else if (defined(SelectionIndicatorViewModel.defaultSanitizer)) {
+                        value = SelectionIndicatorViewModel.defaultSanitizer(value);
+                    }
+                    this._descriptionHtml = value;
                 }
             }
         });
@@ -222,20 +244,28 @@ define([
     };
 
     /**
+     * Gets or sets the default HTML sanitization function to use for all instances.
+     * By default, Google Caja is used with only basic HTML allowed.
+     * A specific instance can override this property by setting its prototype sanitizer property.
+     *
+     * This property is a function which takes a unsanitized HTML string and returns a
+     * sanitized version.
+     * @memberof SelectionIndicatorViewModel
+     */
+    SelectionIndicatorViewModel.defaultSanitizer = sanitizeCaja;
+
+    /**
      * Updates the view of the selection indicator to match the position and content properties of the view model
      * @memberof SelectionIndicatorViewModel
      */
     SelectionIndicatorViewModel.prototype.update = function() {
-        var pos;
         if (this.showSelection) {
             if (defined(this._position)) {
-                pos = this._computeScreenSpacePosition(this._position, screenSpacePos);
+                var pos = this._computeScreenSpacePosition(this._position, screenSpacePos);
                 pos.x = Math.floor(pos.x + 0.25);
                 pos.y = Math.floor(pos.y + 0.25);
-            } else {
-                pos = this._defaultPosition;
+                shiftPosition(this, pos);
             }
-            shiftPosition(this, pos);
         }
     };
 
@@ -334,20 +364,6 @@ define([
             }
         },
         /**
-         * Gets or sets the default screen space position of the selection indicator.
-         * @memberof SelectionIndicatorViewModel.prototype
-         *
-         * @type {Cartesain2}
-         */
-        defaultPosition : {
-            get : function() {
-                return this._defaultPosition;
-            },
-            set : function(value) {
-                this._defaultPosition = Cartesian2.clone(value, this._defaultPosition);
-            }
-        },
-        /**
          * Sets the function for converting the world position of the object to the screen space position.
          * Expects the {Cartesian3} parameter for the position and the optional {Cartesian2} parameter for the result.
          * Should return a {Cartesian2}.
@@ -391,6 +407,21 @@ define([
         onCloseInfo : {
             get : function() {
                 return this._onCloseInfo;
+            }
+        },
+        /**
+         * Gets the HTML sanitization function to use for the selection description.
+         */
+        sanitizer : {
+            get : function() {
+                return this._sanitizer;
+            },
+            set : function(value) {
+                this._sanitizer = value;
+                //Force resanitization of existing text
+                var oldHtml = this._unsanitizedDescriptionHtml;
+                this._unsanitizedDescriptionHtml = '';
+                this.descriptionHtml = oldHtml;
             }
         }
     });

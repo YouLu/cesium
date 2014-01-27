@@ -70,7 +70,15 @@ define(['../../Core/BoundingSphere',
 
         //SelectionIndicator
         var selectionIndicatorContainer = document.createElement('div');
-        viewer.container.appendChild(selectionIndicatorContainer);
+        var viewerElement = viewer.container.firstChild;
+        if (viewerElement.children.length > 1) {
+            // The first (rear-most) child of "viewer" will always be "cesiumWidget".  Insert the
+            // selection as the second child, prior to any other UI elements.
+            viewerElement.insertBefore(selectionIndicatorContainer, viewerElement.children[1]);
+        } else {
+            // If all other subwidgets are turned off, just append after cesiumWidget.
+            viewerElement.appendChild(selectionIndicatorContainer);
+        }
 
         var selectionIndicator = new SelectionIndicator(selectionIndicatorContainer, viewer.scene);
 
@@ -99,22 +107,26 @@ define(['../../Core/BoundingSphere',
             }
 
             var selectedObject = viewer.selectedObject;
-            var showSelection = defined(selectedObject) && selectedObject.isAvailable(time);
+            var showSelection = defined(selectedObject);
             if (showSelection) {
-                if (defined(selectedObject.position)) {
-                    selectionIndicatorViewModel.position = selectedObject.position.getValue(time, selectionIndicatorViewModel.position);
-                } else if (defined(selectedObject.vertexPositions)) {
-                    scratchVertexPositions = selectedObject.vertexPositions.getValue(time, scratchVertexPositions);
-                    scratchBoundingSphere = BoundingSphere.fromPoints(scratchVertexPositions, scratchBoundingSphere);
-                    selectionIndicatorViewModel.position = scratchBoundingSphere.center;
+                if (selectedObject.isAvailable(time)) {
+                    if (defined(selectedObject.position)) {
+                        selectionIndicatorViewModel.position = selectedObject.position.getValue(time, selectionIndicatorViewModel.position);
+                    } else if (defined(selectedObject.vertexPositions)) {
+                        scratchVertexPositions = selectedObject.vertexPositions.getValue(time, scratchVertexPositions);
+                        scratchBoundingSphere = BoundingSphere.fromPoints(scratchVertexPositions, scratchBoundingSphere);
+                        selectionIndicatorViewModel.position = scratchBoundingSphere.center;
+                    } else {
+                        selectionIndicatorViewModel.position = undefined;
+                    }
                 } else {
                     selectionIndicatorViewModel.position = undefined;
                 }
 
                 if (defined(selectedObject.description)) {
-                    selectionIndicatorViewModel.descriptionText = selectedObject.description.getValue(time) || '';
+                    selectionIndicatorViewModel.descriptionHtml = selectedObject.description.getValue(time) || '';
                 } else {
-                    selectionIndicatorViewModel.descriptionText = '';
+                    selectionIndicatorViewModel.descriptionHtml = '';
                 }
             }
 
@@ -260,8 +272,7 @@ define(['../../Core/BoundingSphere',
                         selectionIndicatorViewModel.titleText = defined(value.name) ? value.name : '';
                         selectionIndicatorViewModel.animateAppear();
                     } else {
-                        // Removing the text here prevents the exit animation.
-                        //selectionIndicatorViewModel.titleText = '';
+                        // Leave the info text in place here, it is needed during the exit animation.
                         selectionIndicatorViewModel.animateDepart();
                     }
                     selectedObjectObservable(value);
