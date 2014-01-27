@@ -95,7 +95,7 @@ define([
 
         var descriptionElement = document.createElement('div');
         descriptionElement.className = 'cesium-selection-info-description';
-        descriptionElement.setAttribute('data-bind', 'html: descriptionText, style : { maxHeight : maxHeightOffset(40) }');
+        descriptionElement.setAttribute('data-bind', 'html: descriptionHtml, style : { maxHeight : maxHeightOffset(40) }');
         infoBodyElement.appendChild(descriptionElement);
 
         var viewModel = new SelectionIndicatorViewModel(scene, this._element, this._container);

@@ -122,9 +122,9 @@ define(['../../Core/BoundingSphere',
                 }
 
                 if (defined(selectedObject.description)) {
-                    selectionIndicatorViewModel.descriptionText = selectedObject.description.getValue(time) || '';
+                    selectionIndicatorViewModel.descriptionHtml = selectedObject.description.getValue(time) || '';
                 } else {
-                    selectionIndicatorViewModel.descriptionText = '';
+                    selectionIndicatorViewModel.descriptionHtml = '';
                 }
             }
 

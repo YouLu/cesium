@@ -93,8 +93,8 @@ define([
         this._timerRunning = false;
         this._showSelection = false;
         this._titleText = '';
-        this._descriptionText = '';
-        this._unsanitizedDescriptionText = '';
+        this._descriptionHtml = '';
+        this._unsanitizedDescriptionHtml = '';
         this._onCloseInfo = new Event();
         this._computeScreenSpacePosition = function(position, result) {
             return SceneTransforms.wgs84ToWindowCoordinates(scene, position, result);
@@ -138,7 +138,7 @@ define([
          */
         this.maxHeight = 500;
 
-        knockout.track(this, ['_position', '_positionX', '_positionY', 'triangleDistance', 'triangleRotation', '_showSelection', '_titleText', '_descriptionText', 'maxHeight']);
+        knockout.track(this, ['_position', '_positionX', '_positionY', 'triangleDistance', 'triangleRotation', '_showSelection', '_titleText', '_descriptionHtml', 'maxHeight']);
 
         /**
          * Gets or sets the visibility of the selection indicator.
@@ -193,20 +193,20 @@ define([
          *
          * @type {String}
          */
-        this.descriptionText = undefined;
-        knockout.defineProperty(this, 'descriptionText', {
+        this.descriptionHtml = undefined;
+        knockout.defineProperty(this, 'descriptionHtml', {
             get : function() {
-                return this._descriptionText;
+                return this._descriptionHtml;
             },
             set : function(value) {
-                if (this._unsanitizedDescriptionText !== value) {
-                    this._unsanitizedDescriptionText = value;
+                if (this._unsanitizedDescriptionHtml !== value) {
+                    this._unsanitizedDescriptionHtml = value;
                     if (defined(this._sanitizer)) {
                         value = this._sanitizer(value);
                     } else if (defined(SelectionIndicatorViewModel.defaultSanitizer)) {
                         value = SelectionIndicatorViewModel.defaultSanitizer(value);
                     }
-                    this._descriptionText = value;
+                    this._descriptionHtml = value;
                 }
             }
         });
@@ -419,9 +419,9 @@ define([
             set : function(value) {
                 this._sanitizer = value;
                 //Force resanitization of existing text
-                var oldText = this._unsanitizedDescriptionText;
-                this._unsanitizedDescriptionText = '';
-                this.descriptionText = oldText;
+                var oldHtml = this._unsanitizedDescriptionHtml;
+                this._unsanitizedDescriptionHtml = '';
+                this.descriptionHtml = oldHtml;
             }
         }
     });
