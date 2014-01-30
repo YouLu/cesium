@@ -10,6 +10,8 @@ define(['../../Core/BoundingSphere',
         '../../Core/ScreenSpaceEventType',
         '../../Core/wrapFunction',
         '../../Scene/SceneMode',
+        '../InfoBox/InfoBox',
+        '../SelectionIndicator/SelectionIndicator',
         '../../DynamicScene/DynamicObjectView',
         '../../ThirdParty/knockout'
     ], function(
@@ -24,6 +26,8 @@ define(['../../Core/BoundingSphere',
         ScreenSpaceEventType,
         wrapFunction,
         SceneMode,
+        InfoBox,
+        SelectionIndicator,
         DynamicObjectView,
         knockout) {
     "use strict";
@@ -40,6 +44,7 @@ define(['../../Core/BoundingSphere',
      *
      * @exception {DeveloperError} viewer is required.
      * @exception {DeveloperError} trackedObject is already defined by another mixin.
+     * @exception {DeveloperError} selectedObject is already defined by another mixin.
      *
      * @example
      * // Add support for working with DynamicObject instances to the Viewer.
@@ -47,6 +52,7 @@ define(['../../Core/BoundingSphere',
      * var viewer = new Cesium.Viewer('cesiumContainer');
      * viewer.extend(Cesium.viewerDynamicObjectMixin);
      * viewer.trackedObject = dynamicObject; //Camera will now track dynamicObject
+     * viewer.selectedObject = object; //Selection will now appear over object
      */
 
     var viewerDynamicObjectMixin = function(viewer) {
@@ -57,11 +63,36 @@ define(['../../Core/BoundingSphere',
         if (viewer.hasOwnProperty('trackedObject')) {
             throw new DeveloperError('trackedObject is already defined by another mixin.');
         }
+        if (viewer.hasOwnProperty('selectedObject')) {
+            throw new DeveloperError('selectedObject is already defined by another mixin.');
+        }
         //>>includeEnd('debug');
 
+        var infoBox = viewer.infoBox;
+        var infoBoxViewModel = defined(infoBox) ? infoBox.viewModel : undefined;
+
+        var selectionIndicator = viewer.selectionIndicator;
+        var selectionIndicatorViewModel = defined(selectionIndicator) ? selectionIndicator.viewModel : undefined;
+
+        var enableInfoOrSelection = defined(infoBox) || defined(selectionIndicator);
+
         var eventHelper = new EventHelper();
+        var selectedObjectObservable = knockout.observable();
         var trackedObjectObservable = knockout.observable();
         var dynamicObjectView;
+
+        function trackSelectedObject() {
+            viewer.trackedObject = viewer.selectedObject;
+        }
+
+        function infoBoxClosed() {
+            viewer.selectedObject = undefined;
+        }
+
+        if (defined(infoBoxViewModel)) {
+            eventHelper.add(infoBoxViewModel.cameraClicked, trackSelectedObject);
+            eventHelper.add(infoBoxViewModel.closeClicked, infoBoxClosed);
+        }
 
         var scratchVertexPositions;
         var scratchBoundingSphere;
@@ -71,6 +102,51 @@ define(['../../Core/BoundingSphere',
             var time = clock.currentTime;
             if (defined(dynamicObjectView)) {
                 dynamicObjectView.update(time);
+            }
+
+            var selectedObject = viewer.selectedObject;
+            var showSelection = defined(selectedObject) && enableInfoOrSelection;
+            if (showSelection) {
+                var oldPosition = defined(selectionIndicatorViewModel) ? selectionIndicatorViewModel.position : undefined;
+                var position;
+                var enableCamera = false;
+
+                if (selectedObject.isAvailable(time)) {
+                    if (defined(selectedObject.position)) {
+                        position = selectedObject.position.getValue(time, oldPosition);
+                        enableCamera = defined(position) && (viewer.trackedObject !== viewer.selectedObject);
+                    } else if (defined(selectedObject.vertexPositions)) {
+                        scratchVertexPositions = selectedObject.vertexPositions.getValue(time, scratchVertexPositions);
+                        scratchBoundingSphere = BoundingSphere.fromPoints(scratchVertexPositions, scratchBoundingSphere);
+                        position = scratchBoundingSphere.center;
+                        // Can't track scratch positions: "enableCamera" is false.
+                    }
+                    // else "position" is undefined and "enableCamera" is false.
+                }
+                // else "position" is undefined and "enableCamera" is false.
+
+                if (defined(selectionIndicatorViewModel)) {
+                    selectionIndicatorViewModel.position = position;
+                }
+
+                if (defined(infoBoxViewModel)) {
+                    infoBoxViewModel.enableCamera = enableCamera;
+                    infoBoxViewModel.isCameraTracking = (viewer.trackedObject === viewer.selectedObject);
+
+                    if (defined(selectedObject.description)) {
+                        infoBoxViewModel.descriptionRawHtml = defaultValue(selectedObject.description.getValue(time), '');
+                    } else {
+                        infoBoxViewModel.descriptionRawHtml = '';
+                    }
+                }
+            }
+
+            if (defined(selectionIndicatorViewModel)) {
+                selectionIndicatorViewModel.update();
+                selectionIndicatorViewModel.showSelection = showSelection;
+            }
+            if (defined(infoBoxViewModel)) {
+                infoBoxViewModel.showInfo = showSelection;
             }
         }
         eventHelper.add(viewer.clock.onTick, onTick);
@@ -83,21 +159,33 @@ define(['../../Core/BoundingSphere',
 
         function pickAndTrackObject(e) {
             var picked = viewer.scene.pick(e.position);
-            if (defined(picked) &&
-                defined(picked.primitive) &&
-                defined(picked.primitive.dynamicObject)) {
-                trackObject(picked.primitive.dynamicObject);
+            if (defined(picked) && defined(picked.primitive) && defined(picked.primitive.dynamicObject)) {
+                viewer.trackedObject = picked.primitive.dynamicObject;
             }
+        }
+
+        function pickAndShowSelection(e) {
+            var picked = viewer.scene.pick(e.position);
+            if (defined(picked) && defined(picked.primitive) && defined(picked.primitive.dynamicObject)) {
+                viewer.selectedObject = picked.primitive.dynamicObject;
+            } else {
+                viewer.selectedObject = undefined;
+            }
+        }
+
+        function clearTrackedObject() {
+            viewer.trackedObject = undefined;
         }
 
         function clearObjects() {
             viewer.trackedObject = undefined;
+            viewer.selectedObject = undefined;
         }
 
         //Subscribe to the home button beforeExecute event if it exists,
         // so that we can clear the trackedObject.
         if (defined(viewer.homeButton)) {
-            eventHelper.add(viewer.homeButton.viewModel.command.beforeExecute, clearObjects);
+            eventHelper.add(viewer.homeButton.viewModel.command.beforeExecute, clearTrackedObject);
         }
 
         //Subscribe to the geocoder search if it exists, so that we can
@@ -115,6 +203,9 @@ define(['../../Core/BoundingSphere',
                 if (viewer.trackedObject === removedObject) {
                     viewer.homeButton.viewModel.command();
                 }
+                if (viewer.selectedObject === removedObject) {
+                    viewer.selectedObject = undefined;
+                }
             }
         }
 
@@ -128,6 +219,11 @@ define(['../../Core/BoundingSphere',
             if (defined(viewer.trackedObject)) {
                 if (dataSource.getDynamicObjectCollection().getById(viewer.trackedObject.id) === viewer.trackedObject) {
                     viewer.homeButton.viewModel.command();
+                }
+            }
+            if (defined(viewer.selectedObject)) {
+                if (dataSource.getDynamicObjectCollection().getById(viewer.selectedObject.id) === viewer.selectedObject) {
+                    viewer.selectedObject = undefined;
                 }
             }
         }
@@ -144,7 +240,8 @@ define(['../../Core/BoundingSphere',
         eventHelper.add(viewer.dataSources.dataSourceRemoved, dataSourceRemoved);
 
         //Subscribe to left clicks and zoom to the picked object.
-        viewer.screenSpaceEventHandler.setInputAction(pickAndTrackObject, ScreenSpaceEventType.LEFT_CLICK);
+        viewer.screenSpaceEventHandler.setInputAction(pickAndShowSelection, ScreenSpaceEventType.LEFT_CLICK);
+        viewer.screenSpaceEventHandler.setInputAction(pickAndTrackObject, ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 
         if (defined(viewer.dataSourceBrowser)) {
             eventHelper.add(viewer.dataSourceBrowser.viewModel.onObjectDoubleClick, trackObject);
@@ -178,9 +275,40 @@ define(['../../Core/BoundingSphere',
             }
         });
 
+        /**
+         * Gets or sets the object instance for which to display a selection indicator
+         * @memberof viewerDynamicObjectMixin.prototype
+         * @type {DynamicObject}
+         */
+        viewer.selectedObject = undefined;
+        knockout.defineProperty(viewer, 'selectedObject', {
+            get : function() {
+                return selectedObjectObservable();
+            },
+            set : function(value) {
+                if (selectedObjectObservable() !== value) {
+                    if (defined(value)) {
+                        if (defined(infoBoxViewModel)) {
+                            infoBoxViewModel.titleText = defined(value.name) ? value.name : value.id;
+                        }
+                        if (defined(selectionIndicatorViewModel)) {
+                            selectionIndicatorViewModel.animateAppear();
+                        }
+                    } else {
+                        // Leave the info text in place here, it is needed during the exit animation.
+                        if (defined(selectionIndicatorViewModel)) {
+                            selectionIndicatorViewModel.animateDepart();
+                        }
+                    }
+                    selectedObjectObservable(value);
+                }
+            }
+        });
+
         //Wrap destroy to clean up event subscriptions.
         viewer.destroy = wrapFunction(viewer, viewer.destroy, function() {
             eventHelper.removeAll();
+            selectionIndicator.destroy();
             viewer.screenSpaceEventHandler.removeInputAction(ScreenSpaceEventType.LEFT_CLICK);
             viewer.screenSpaceEventHandler.removeInputAction(ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
 
