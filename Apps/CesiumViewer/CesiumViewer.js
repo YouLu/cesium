@@ -10,7 +10,6 @@ define([
         'Widgets/Viewer/viewerDynamicObjectMixin',
         'Widgets/DataSourceBrowser/DataSourcePanelViewModel',
         'Widgets/DataSourceBrowser/ListDataSourcePanel',
-        'Widgets/subscribeAndEvaluate',
         'domReady!'
     ], function(
         defined,
@@ -22,8 +21,7 @@ define([
         viewerDragDropMixin,
         viewerDynamicObjectMixin,
         DataSourcePanelViewModel,
-        ListDataSourcePanel,
-        subscribeAndEvaluate) {
+        ListDataSourcePanel) {
     "use strict";
     /*global console*/
 
@@ -84,27 +82,6 @@ define([
 
         viewer.dropError.addEventListener(function(viewerArg, name, error) {
             showLoadError(name, error);
-        });
-
-        //These two blocks keep the Viewer widget's selectedObject in sync with the selected node in the DataSourceBrowser.
-        subscribeAndEvaluate(viewer, 'selectedObject', function(selectedObject) {
-            if (defined(selectedObject)) {
-                viewer.dataSourceBrowser.viewModel.selectViewModelById(selectedObject.id);
-            } else {
-                viewer.dataSourceBrowser.viewModel.selectedViewModel = undefined;
-            }
-        });
-
-        subscribeAndEvaluate(viewer.dataSourceBrowser.viewModel, 'selectedViewModel', function(selectedViewModel) {
-            if (defined(selectedViewModel) && defined(selectedViewModel.dynamicObject)) {
-                viewer.selectedObject = selectedViewModel.dynamicObject;
-            } else {
-                viewer.selectedObject = undefined;
-            }
-        });
-
-        viewer.dataSourceBrowser.viewModel.onObjectDoubleClick.addEventListener(function(dynamicObject) {
-            viewer.trackedObject = dynamicObject;
         });
 
         var scene = viewer.scene;
